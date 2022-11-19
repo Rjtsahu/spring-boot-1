@@ -6,7 +6,7 @@ import java.util.stream.IntStream
 import kotlin.random.Random
 import kotlin.streams.toList
 
-fun main() {
+fun main1() {
 //    fluxWithCreate()
     fluxDeferred()
 //    fluxWithGenerate()
