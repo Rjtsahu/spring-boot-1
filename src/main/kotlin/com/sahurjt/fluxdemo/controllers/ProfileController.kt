@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
 @RestController
@@ -18,10 +19,21 @@ class ProfileController(val service: ProfileService) {
         return service.getProfile(id)
     }
 
-
     @GetMapping("/{id}/combined")
-    fun getCombinedProfile(@PathVariable("id") id: Int): Mono<CombinedProfileResponse> {
-        return service.getWithContact(id)
+    fun getCombinedProfile1(@PathVariable("id") id: Int): Mono<CombinedProfileResponse> {
+        return service.zipWithContact(id)
     }
+
+    @GetMapping("/{id}/combined-optional")
+    fun getCombinedProfile2(@PathVariable("id") id: Int): Mono<CombinedProfileResponse> {
+        return service.zipOptionalContact1(id)
+    }
+
+    @GetMapping("/list")
+    fun getUsers(): Flux<ProfileResponse> = service.getAllProfile()
+
+    @GetMapping("/list-2")
+    fun getUsers2(): Flux<ProfileResponse> = service.getAllWithMultipleSubscriber()
+
 }
 
