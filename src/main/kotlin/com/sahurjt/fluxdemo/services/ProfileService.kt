@@ -32,11 +32,15 @@ class ProfileService(val userRepo: UserRepository, val contactClient: UserContac
 
     fun zipWithContact(id: Int): Mono<CombinedProfileResponse> {
         return userRepo.findById(id)
-            .flatMap { Mono.just(ProfileResponse(it.id, it.name, it.age)) }
+            .flatMap { user: User ->
+                Mono.just(ProfileResponse(user.id, user.name, user.age))
+            }
             .zipWith(
                 contactClient.fetchById(id)
                     .flatMap { contact -> Mono.just(ContactResponse(contact.phone, contact.email)) })
-            .flatMap { Mono.just(CombinedProfileResponse(it.t1, it.t2)) }
+            .flatMap { tuple ->
+                Mono.just(CombinedProfileResponse(tuple.t1, tuple.t2))
+            }
     }
 
     fun zipOptionalContact(id: Int): Mono<CombinedProfileResponse> {
@@ -52,11 +56,20 @@ class ProfileService(val userRepo: UserRepository, val contactClient: UserContac
     }
 
     fun zipOptionalContact1(id: Int): Mono<CombinedProfileResponse> {
-        val profile = userRepo.findById(id).flatMap { Mono.just(ProfileResponse(it.id, it.name, it.age)) }
-        val contact = contactClient.fetchById(id).flatMap { Mono.just(ContactResponse(it.phone, it.email)) }
+        val profile = userRepo.findById(id)
+            .flatMap { user ->
+                Mono.just(ProfileResponse(user.id, user.name, user.age))
+            }
+
+        val contact = contactClient.fetchById(id)
+            .flatMap { contact ->
+                Mono.just(ContactResponse(contact.phone, contact.email))
+            }
             .defaultIfEmpty(ContactResponse("", ""))
 
-        return Mono.zip(profile, contact).flatMap { Mono.just(CombinedProfileResponse(it.t1, it.t2)) }
+        return Mono.zip(profile, contact).flatMap { tuple ->
+            Mono.just(CombinedProfileResponse(tuple.t1, tuple.t2))
+        }
     }
 
     fun getAllProfile(): Flux<ProfileResponse> {
@@ -75,7 +88,9 @@ class ProfileService(val userRepo: UserRepository, val contactClient: UserContac
                     .flatMap { contact -> Mono.just(ContactResponse(contact.phone, contact.email)) }
                     .defaultIfEmpty(ContactResponse("", ""))
                     .flatMap { contact -> Mono.just(CombinedProfileResponse(profile, contact)) }
-            }.parallel(4).runOn(Schedulers.boundedElastic())
+            }
+            .parallel(4)
+            .runOn(Schedulers.boundedElastic())
     }
 
     /*
@@ -101,15 +116,19 @@ class ProfileService(val userRepo: UserRepository, val contactClient: UserContac
         val profiles = userRepo.findAll()
             .cache(Duration.ofMinutes(1))
 
-        profiles.subscribe { logConsumer(it) }
+        profiles
+            .subscribeOn(Schedulers.boundedElastic())
+            .subscribe { logConsumer(it) }
 
         return Flux.create { fluxSink: FluxSink<ProfileResponse> ->
-            profiles.subscribe(
-                { data -> fluxSink.next(ProfileResponse(data.id, data.name, data.age)) },
-                { err -> fluxSink.error(err) },
-                { fluxSink.complete() }
-            )
-        }
+            profiles
+                .subscribeOn(Schedulers.boundedElastic())
+                .subscribe(
+                    { data -> fluxSink.next(ProfileResponse(data.id, data.name, data.age)) },
+                    { err -> fluxSink.error(err) },
+                    { fluxSink.complete() }
+                )
+        }.delayElements(Duration.ofSeconds(1))
     }
 
     private fun logConsumer(user: User) {
